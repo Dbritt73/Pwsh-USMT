@@ -1,0 +1,25 @@
+<migration urlid=”http://www.microsoft.com/migration/1.0/migxmlext/includefolder”>
+
+<component type=”Documents” context=”System”>
+
+<displayName>Folder Inclusion</displayName>
+
+<role role=”Data”>
+
+<rules>
+
+<include>
+
+<objectSet>
+
+</objectSet>
+
+</include>
+
+</rules>
+
+</role>
+
+</component>
+
+</migration>
