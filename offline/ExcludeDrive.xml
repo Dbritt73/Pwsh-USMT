@@ -1,42 +1,23 @@
+\<?xml version="1.0" encoding="UTF-8"?>
 <migration urlid="http://www.microsoft.com/migration/1.0/migxmlext/excludedrive">
-
-<component type="Documents" context="System">
-
-<displayName>Drive Exclusion</displayName>
-
-<role role="Data">
-
-<rules>
-
-<unconditionalExclude>
-
-<objectSet>
-<pattern type="File">C:\*[*]</pattern>
-
-<pattern type="File">D:\*[*]</pattern>
-
-<pattern type="File">P:\*[*]</pattern>
-
-<pattern type="File">X:\*[*]</pattern>
-
-<pattern type="File">W:\*[*]</pattern>
-
-<pattern type="File">Y:\*[*]</pattern>
-
-<pattern type="File">U:\*[*]</pattern>
-
-<pattern type="File">F:\*[*]</pattern>
-
-<pattern type="File">Z:\*[*]</pattern>
-
-</objectSet>
-
-</unconditionalExclude>
-
-</rules>
-
-</role>
-
-</component>
-
+   <component type="Documents" context="System">
+      <displayName>Drive Exclusion</displayName>
+      <role role="Data">
+         <rules>
+            <unconditionalExclude>
+               <objectSet>
+                  <pattern type="File">C:\*[*]</pattern>
+                  <pattern type="File">D:\*[*]</pattern>
+                  <pattern type="File">P:\*[*]</pattern>
+                  <pattern type="File">X:\*[*]</pattern>
+                  <pattern type="File">W:\*[*]</pattern>
+                  <pattern type="File">Y:\*[*]</pattern>
+                  <pattern type="File">U:\*[*]</pattern>
+                  <pattern type="File">F:\*[*]</pattern>
+                  <pattern type="File">Z:\*[*]</pattern>
+               </objectSet>
+            </unconditionalExclude>
+         </rules>
+      </role>
+   </component>
 </migration>
