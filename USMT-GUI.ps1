@@ -9,7 +9,19 @@ Function Invoke-USMTScanState {
         Utilizes the User State Migration Tool (USMT), provided through the Windows Assesment and Deployment Kit (Windows ADK).
         Scans existing system and migrating user profile information including files, and application settings to another location.
         Ability to specifcy multiple active users over last # days, or a single user determined by username. Script supports
-        both x86 and x64 architectures. 
+        both x86 and x64 architectures.
+
+      .Parameter MigSource
+        Location to save user state, can be local or network share
+
+      .Parameter User
+        Specify Username of user to be migrated
+
+      .Parameter Arch
+        Architecure of the system being run on - x64 or x86
+
+      .Parameter Days
+        Number of days to go back and migrate profiles that have been logged into during that timespan. Default is 30 days
 
       .EXAMPLE
         ScanState.ps1 -SingleUser -User 'username' -Verbose
@@ -19,14 +31,13 @@ Function Invoke-USMTScanState {
 
     #>
     [CmdletBinding()]
-    Param
-    (
+    Param (
 
         [Parameter( Mandatory=$true,
                     HelpMessage='Location to save user state, can be local or network share')]
         [string]$MigSource,
 
-        [Parameter(HelpMessage='Specify UserName of user to be migrated')]
+        [Parameter(ParameterSetName = 'Single')]
         [string]$user,
 
         [Parameter( Mandatory=$true,
@@ -34,6 +45,7 @@ Function Invoke-USMTScanState {
         [ValidateSet('x64', 'x86')]
         [string]$Arch,
 
+        [Parameter(ParameterSetName = 'Multi')]
         [int]$Days = 30
 
     )
@@ -47,38 +59,48 @@ Function Invoke-USMTScanState {
             $NewStore = ('{0}\Stores\{1}' -f $MigSource, $ENV:COMPUTERNAME)
             New-Item -Path $NewStore -ItemType Directory
             $USMTDir = $(Split-path -Path $PSCommandPath -Parent)
-            #USMT ScanState
-            #Single User
 
             if ($PSBoundParameters.ContainsKey('User')) {
 
-                & "$USMTDir\$Arch\scanstate.exe" `
-                $NewStore `
-                /i:$USMTDir\$Arch\MigUser.xml `
-                /i:$USMTDir\$Arch\MigDocs.xml `
-                /i:$USMTDir\$Arch\migapp.xml `
-                /l:$NewStore\Scanstate.log `
-                /progress:$NewStore\Progress.log `
-                /v:13 `
-                /ue:*\* `
-                /ui:WWU\$user `
-                /localonly `
-                /C
+                $ArgumentList = @(
+
+                    "$NewStore"
+                    "/i:$CurrentDir\$Arch\MigUser.xml"
+                    "/i:$CurrentDir\$Arch\MigDocs.xml"
+                    "/i:$currentdir\$Arch\migapp.xml"
+                    "/l:$NewStore\Scanstate.log"
+                    "/progress:$NewStore\Progress.log"
+                    "/v:13"
+                    "/ue:*\*"
+                    "/ui:DOMAIN\$user"
+                    "/localonly"
+                    "/C"
+                    "/EFS:COPYRAW"
+
+                )
+
+                Start-Process "$USMTDir\$Arch\scanstate.exe" -ArgumentList $ArgumentList -Wait -NoNewWindow
 
             } Else {
 
                 #Multi-user
-                &$USMTDir\$Arch\scanstate.exe `
-                $NewStore `
-                /uel:$Days `
-                /i:$USMTDir\$Arch\MigUser.xml `
-                /i:$USMTDir\$Arch\MigDocs.xml `
-                /i:$USMTDir\$Arch\migapp.xml `
-                /l:$NewStore\Scanstate.log `
-                /progress:$NewStore\Progress.log `
-                /v:13 `
-                /localonly `
-                /C
+                $ArgumentList = @(
+
+                    "$NewStore"
+                    "/uel:$Days"
+                    "/i:$USMTDir\$Arch\MigUser.xml"
+                    "/i:$USMTDir\$Arch\MigDocs.xml"
+                    "/i:$USMTDir\$Arch\migapp.xml"
+                    "/l:$NewStore\Scanstate.log"
+                    "/progress:$NewStore\Progress.log"
+                    "/v:13"
+                    "/localonly"
+                    "/C"
+                    "/EFS:COPYRAW"
+
+                )
+
+                Start-Process "$USMTDir\$Arch\scanstate.exe" -ArgumentList $ArgumentList -Wait -NoNewWindow
 
             }
 
@@ -90,17 +112,17 @@ Function Invoke-USMTScanState {
             # retrieve information about runtime error
             $info = [PSCustomObject]@{
 
-              Exception = $e.Exception.Message
-              Reason    = $e.CategoryInfo.Reason
-              Target    = $e.CategoryInfo.TargetName
-              Script    = $e.InvocationInfo.ScriptName
-              Line      = $e.InvocationInfo.ScriptLineNumber
-              Column    = $e.InvocationInfo.OffsetInLine
+                Exception = $e.Exception.Message
+                Reason    = $e.CategoryInfo.Reason
+                Target    = $e.CategoryInfo.TargetName
+                Script    = $e.InvocationInfo.ScriptName
+                Line      = $e.InvocationInfo.ScriptLineNumber
+                Column    = $e.InvocationInfo.OffsetInLine
 
             }
 
             # output information. Post-process collected info, and log info (optional)
-            $info
+            Write-Output -InputObject $info
         }
 
     }
@@ -118,6 +140,15 @@ Function Invoke-USMTLoadState {
         Utilizes the User State Migration Tool (USMT), provided through the Windows Assesment and Deployment Kit (Windows ADK).
         Loads previously migrated user data to a new system.
 
+      .Parameter MigSource
+        Location of saved user state, can be local or network share
+
+      .Parameter ComputerName
+        Name of the computer that has been migrated and want to extract user state from
+
+      .Parameter Arch
+        Architecure of the system being run on - x64 or x86
+
       .EXAMPLE
         LoadState.ps1 -ComputerName SERVER1 -Verbose
 
@@ -128,18 +159,18 @@ Function Invoke-USMTLoadState {
 
     [CmdletBinding()]
     Param (
-        
-    [Parameter( Mandatory=$true,
-                HelpMessage='Location of saved user state, can be local or network share')]
-    [string]$MigSource,
 
-    [Parameter( Mandatory=$true,
-                HelpMessage='Name of the computer that has been migrated and want to extract user state from')]
-    [string]$ComputerName,
+        [Parameter( Mandatory = $true,
+                    HelpMessage = 'Location of saved user state, can be local or network share')]
+        [string]$MigSource,
 
-    [Parameter(HelpMessage='Architecture of new system - x86 or x64')]
-    [ValidateSet('x64', 'x86')]
-    [string]$Arch = 'x64'
+        [Parameter( Mandatory = $true,
+                    HelpMessage = 'Name of the computer that has been migrated and want to extract user state from')]
+        [string]$ComputerName,
+
+
+        [ValidateSet('x64', 'x86')]
+        [string]$Arch = 'x64'
 
     )
 
@@ -151,16 +182,21 @@ Function Invoke-USMTLoadState {
 
             #NOTE the backticks as line breaks for readability, operates as single line.
             $USMTDir = $(Split-path -Path $PSCommandPath -Parent)
-            &$USMTDir\$Arch\loadstate.exe `
-            $MigSource\Stores\$ComputerName `
-            /i:$USMTDir\$Arch\MigUser.xml `
-            /i:$USMTDir\$Arch\migapp.xml `
-            /i:$USMTDir\$Arch\MigDocs.xml `
-            /l:$MigSource\Stores\$ComputerName\Loadstate.log `
-            /UE:$ComputerName\ATUS `
-            /v:13 `
-            /lac `
-            /c
+
+            $ArgumentList = @(
+
+                "$MigSource\Stores\$ComputerName"
+                "/i:$USMTDir\$Arch\MigUser.xml"
+                "/i:$USMTDir\$Arch\migapp.xml"
+                "/i:$USMTDir\$Arch\MigDocs.xml"
+                "/l:$MigSource\Stores\$ComputerName\Loadstate.log"
+                "/UE:$ComputerName\LOCAL_USER"
+                "/v:13"
+                "/lac"
+                "/c"
+            )
+
+            Start-Process "$USMTDir\$Arch\loadstate.exe" -ArgumentList $ArgumentList -Wait -NoNewWindow
 
         } Catch {
 
@@ -170,17 +206,17 @@ Function Invoke-USMTLoadState {
             # retrieve information about runtime error
             $info = [PSCustomObject]@{
 
-              Exception = $e.Exception.Message
-              Reason    = $e.CategoryInfo.Reason
-              Target    = $e.CategoryInfo.TargetName
-              Script    = $e.InvocationInfo.ScriptName
-              Line      = $e.InvocationInfo.ScriptLineNumber
-              Column    = $e.InvocationInfo.OffsetInLine
+                Exception = $e.Exception.Message
+                Reason    = $e.CategoryInfo.Reason
+                Target    = $e.CategoryInfo.TargetName
+                Script    = $e.InvocationInfo.ScriptName
+                Line      = $e.InvocationInfo.ScriptLineNumber
+                Column    = $e.InvocationInfo.OffsetInLine
 
             }
 
             # output information. Post-process collected info, and log info (optional)
-            $info
+            Write-Output -InputObject $info
         }
 
     }
@@ -252,13 +288,29 @@ Function Invoke-PrinterMigration {
             'Export' {
 
                 $NewStore = ('{0}\Stores\{1}' -f $MigSource, $ENV:COMPUTERNAME)
-                Start-Process -FilePath "$env:windir\System32\spool\tools\PrintBrm.exe" -ArgumentList ('-B -F {0}\{1}.PrinterExport' -f $Newstore, $ENV:Computername) -NoNewWindow -Wait
+                $ArgumentList = @(
+
+                    "-B"
+                    "-F"
+                    "$newstore\$ENV:COMPUTERNAME.PrinterExport"
+
+                )
+
+                Start-Process "$env:windir\System32\spool\tools\PrintBrm.exe" -ArgumentList $ArgumentList -Wait -NoNewWindow
 
             }
 
             'Import' {
 
-                Start-Process -FilePath "$env:windir\System32\spool\tools\PrintBrm.exe" -ArgumentList ('-R -F {0}\stores\{1}\{2}.printerExport' -f $Migsource, $computername) -NoNewWindow -Wait
+                $ArgumentList = @(
+
+                    "-R"
+                    "-F"
+                    "$MigSource\Stores\$ComputerName\$ComputerName.PrinterExport"
+
+                )
+
+                Start-Process "$env:windir\System32\spool\tools\PrintBrm.exe" -ArgumentList $ArgumentList -Wait -NoNewWindow
 
             }
 
@@ -322,7 +374,7 @@ Function Invoke-PrinterMigration {
 "@
 
 $NR=(New-Object -TypeName System.Xml.XmlNodeReader -ArgumentList $Form)
-$Win=[Windows.Markup.XamlReader]::Load( $NR ) 
+$Win=[Windows.Markup.XamlReader]::Load( $NR )
 
 #ScanState controls
 $Server = $win.FindName('Destination')
@@ -352,7 +404,7 @@ $StartScan.add_click({
     } Else {}
 
     if ($SingleUser.ischecked -and $Scanx64.ischecked) {
-      s
+
         Invoke-USMTScanState -MigSource $Server.text -user $Username.text -Arch 'x64'
 
     } elseif ($SingleUser.ischecked -and $Scanx86.ischecked) {
